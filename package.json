@@ -14,7 +14,7 @@
     "coverage": "nyc --version && nyc --reporter lcov --reporter text qnit test-* || echo nyc not installed"
   },
   "keywords": [
-    "call", "rate", "limit", "callback", "limiter", "capped", "Andras"
+    "call", "rate", "limit", "throttle", "Andras", "limiter", "capped"
   ],
   "dependencies": {
     "qlist": "0.12.0"
