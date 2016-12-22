@@ -57,8 +57,17 @@ function Limiter( call, options ) {
     }
 
     function qlimiter_wrapper() {
-        var args = new Array();
-        for (var i=0; i<arguments.length; i++) args[i] = arguments[i];
+        var args;
+        switch (arguments.length) {
+        case 0: args = []; break;
+        case 1: args = [arguments[0]]; break;
+        case 2: args = [arguments[0], arguments[1]]; break;
+        case 3: args = [arguments[0], arguments[1], arguments[2]]; break;
+        default:
+            args = new Array();
+            for (var i=0; i<arguments.length; i++) args[i] = arguments[i];
+            break;
+        }
         return self.scheduleCall(args);
     }
 }
@@ -76,12 +85,17 @@ Limiter.prototype.scheduleCall = function limiter_scheduleCall( args ) {
     }
     return started;
 }
+// node v6 and v7 are both very very slow to apply a function to a pre-sized new Array(n).
+// A new Array dynamically extended with push (or by just setting a[i]) is fast,
+// and static compile-time array [1,2,...,n] is almost as fast,
+// but a new Array(n) then for (i = 0 to n) a[i] = arguments[i] is 12x slower!!
 Limiter.prototype._runCall = function _runCall( call, args ) {
     // launch the call and return true to indicate started
     switch (args.length) {
     case 0: call(); return true;
     case 1: call(args[0]); return true;
     case 2: call(args[0], args[1]); return true;
+    case 3: call(args[0], args[1], args[2]); return true;
     default: call.apply(null, args); return true;
     }
 }
@@ -104,10 +118,6 @@ Limiter.prototype.runCall = function runCall( args ) {
         case 1: cbArgs = [arguments[0]]; break;
         case 2: cbArgs = [arguments[0], arguments[1]]; break;
         default:
-            // node v6 and v7 are both very very slow to apply a function to a pre-sized new Array(n).
-            // A new Array dynamically extended with push (or by just setting a[i]) is fast,
-            // and static compile-time array [1,2,...,n] is almost as fast,
-            // but a new Array(n) then for (i = 0 to n) a[i] = arguments[i] is 12x slower!!
             var cbArgs = new Array();
             for (var i=0; i<arguments.length; i++) cbArgs[i] = arguments[i];
             break;
@@ -116,8 +126,7 @@ Limiter.prototype.runCall = function runCall( args ) {
         // invoke the user callback
         self._runCall(cb, cbArgs);
 
-        // return all the permissions we got to allow the next call to run
-        // giving back the permits can cause the next call to be scheduled
+        // relinquish the permissions to unblock the next call
         for (var i=self.limits.length-1; i>=0; i--) {
             self.limits[i].release(args);
         }

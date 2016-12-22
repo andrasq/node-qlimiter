@@ -131,7 +131,8 @@ module.exports = {
             var started = limiter.wrapped(cb);
             t.assert(!started);
             t.assert(limit1acquired && limit1released && limit2tested && !limit3tested);
-            setTimeout(function(){ limit2.onUnblock() }, 5);
+            // +1 since the timeout can trigger 1 ms early, node-v0.10.42 and v6.9.1 both
+            setTimeout(function(){ limit2.onUnblock() }, 5 + 1);
         },
     },
 
@@ -171,4 +172,41 @@ module.exports = {
             lim.release();
         },
     },
+
+    'speed': {
+        'should run fast': function(t) {
+            var ntests = 0, ncalls = 0, ndone = 0;
+            var lim = new Limit();
+            // pass-fail-pass-fail gating
+            lim.acquire = function(){ return (ntests++ & 1) === 0 };
+            // FIXME: fail-pass-fail-pass gating hangs! and does not complete
+            //lim.acquire = function(){ return (ntests++ & 1) !== 0 };
+            lim.release = function(){ this.onUnblock() };
+            var t1 = Date.now();
+            var fn = function(n, cb) {
+                ncalls += 1;
+                cb();
+            }
+            var loopCount = 10000;
+            var cb = function() {
+                ndone += 1;
+                if (ndone == loopCount) {
+                    var t2 = Date.now();
+                    console.log("AR: %d calls in %d ms", loopCount, t2 - t1);
+                    t.equal(ntests, 2 * loopCount - 1);
+                    t.equal(ncalls, ndone);
+                    // expect at least 100k calls / second (measured 1000k)
+                    t.assert(t2 - t1 < 100);
+                    t.done();
+                }
+            }
+            // 10ms for 10k:
+            var limiter = new Limiter(fn, { limits: [ lim ] });
+            for (var i=0; i<loopCount; i++) limiter.wrapped(i, cb);
+
+            // maxConcurrent is 9ms for 10k:
+            //var limitedFunc = qlimiter(fn, { maxConcurrent: 2 });
+            //for (var i=0; i<loopCount; i++) limitedFunc(i, cb);
+        },
+    }
 }
