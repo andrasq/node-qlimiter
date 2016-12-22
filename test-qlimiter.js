@@ -111,19 +111,27 @@ module.exports = {
             t.assert(started);
         },
 
-        'should back out of transaction if a restriction is not met': function(t) {
-            var limit1acquired = false, limit1released = false, limit2tested = false;
+        'should delay call until a limit unblocks': function(t) {
+            var limit1acquired = false, limit1released = false, limit2tested = false, limit3tested = false;
             var fn = function(cb){ cb() };
             var limit1 = new Limit();
             var limit2 = new Limit();
+            var limit3 = new Limit();
             limit1.acquire = function(){ limit1acquired = true; return true };
             limit1.release = function(){ limit1released = true };
-            limit2.acquire = function(){ limit2tested = true; return false };
+            limit2.acquire = function(){ var first = !limit2tested; limit2tested = true; return !first };
+            limit3.acquire = function(){ limit3tested = true; return true };
             var limiter = new Limiter(fn, {limits: [limit1, limit2]});
-            var started = limiter.wrapped(function(){});
+            var callTime = Date.now();
+            var cb = function() {
+                var now = Date.now();
+                t.assert(now >= callTime + 5);
+                t.done();
+            }
+            var started = limiter.wrapped(cb);
             t.assert(!started);
-            t.assert(limit1acquired && limit1released && limit2tested);
-            t.done();
+            t.assert(limit1acquired && limit1released && limit2tested && !limit3tested);
+            setTimeout(function(){ limit2.onUnblock() }, 5);
         },
     },
 
