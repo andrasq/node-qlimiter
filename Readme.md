@@ -17,3 +17,9 @@ Quick Start
         var ret = a + b;
         cb(null, ret);
     }
+
+
+Change Log
+----------
+
+- 0.1.0 - first checkin, working but work still in progress
