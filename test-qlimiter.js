@@ -111,6 +111,11 @@ module.exports = {
             t.assert(started);
         },
 
+        'should pass distinct args to acquire': function(t) {
+            // TODO
+            t.skip();
+        },
+
         'should delay call until a limit unblocks': function(t) {
             var limit1acquired = false, limit1released = false, limit2tested = false, limit3tested = false;
             var fn = function(cb){ cb() };
