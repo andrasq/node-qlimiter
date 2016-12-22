@@ -2,8 +2,8 @@ qlimiter
 ========
 
 
-Quick configurable, extendable call rate limiter, for all function calls taking a
-callback as the last argument.
+Fast configurable call rate limiter, for any function taking a callback
+as the last argument.  Extendable with externally written limits.
 
 Quick Start
 -----------
@@ -20,17 +20,32 @@ Quick Start
     }
 
 
+Benchmark
+---------
+
+10k 2-arg `maxConcurrent` calls in 9ms
+
+
 Api
 ---
 
 ### qlimiter( func, [options] )
+
+Return a function that invokes `func` when all rate limit criteria are met,
+else queues the call.  Calls are run in order, queued calls first, though they
+may complete out of order.  The function func must always take a callback as
+its last argument.
+
+Options:
+- `limits` - array of custom limits to test
+- `maxConcurrent`
 
 
 Extending
 ---------
 
 Custom limits can be plugged into the qlimiter limits stack.
-custom limits take effect before built-in limits.
+Custom limits are tested before built-in limits.
 
 A custom limit inherits from `qlimiter.Limit` or must implements methods
 
@@ -44,9 +59,9 @@ arguments of the call.  Each call has a different args array, even if the args
 contain the same values.
 
 `release( args, isUndo )` - called to inform the limit that the resource is no
-longer used.  Called when a call completes or when the call was not started because
-another limit blocked it (`isUndo` is true).  The call arguments `args` is the
-same args array object that was passed to `acquire`.
+longer used.  Called when a call completes or to undo an `acquire` if the call was
+not started because another limit blocked it.  The `args` argument is the identical
+object that was passed to `acquire`.
 
 
 Change Log

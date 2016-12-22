@@ -35,6 +35,8 @@ function Limiter( call, options ) {
     if (options.maxConcurrent > 0) limits.push(new LimitConcurrent(parseInt(options.maxConcurrent)));
     if (options.minInterval > 0) limits.push(new LimitInterval(parseInt(options.minInterval)));
 
+// TODO: maxWaiting, maxWaitTime
+
     this.call = call;
     this.wrapped = qlimiter_wrapper;
     this.limits = limits;
