@@ -1,4 +1,9 @@
-/*
+/**
+ * qlimiter - nodejs call limiter
+ *
+ * Copyright (C) 2016 Andras Radics
+ * Licensed under the Apache License, Version 2.0
+ *
  * 2016-12-20 - yet another spin - AR.
  */
 
@@ -10,6 +15,9 @@ var util = require('util');
 // qlist is 3x faster than Array for 1k, and much much faster for 10k (35x), 100k (100x)
 var CallQueue = require('qlist');
 
+var Limit = require('./lib/Limit');
+var LimitConcurrent = require('./lib/LimitConcurrent');
+var LimitInterval = require('./lib/LimitInterval');
 
 function qlimiter( call, options ) {
     var limiter = new Limiter(call, options);
@@ -20,10 +28,7 @@ module.exports = qlimiter;
 module.exports.Limiter = Limiter;
 module.exports.Limit = Limit;
 
-
-//----------------------------------------------------------------
-
-// need a nextTick that also queues arguments
+// a nextTick that also queues arguments
 var nextTick = (process.version >= 'v4') ? process.nextTick : global.setImmediate;
 
 function Limiter( call, options ) {
@@ -73,6 +78,7 @@ function Limiter( call, options ) {
         return self.scheduleCall(args);
     }
 }
+
 Limiter.prototype.scheduleCall = function limiter_scheduleCall( args ) {
     if (typeof args[args.length - 1] !== 'function') {
         // TODO: queue the function too? then if no callback could wrap in own callbacked caller
@@ -87,6 +93,7 @@ Limiter.prototype.scheduleCall = function limiter_scheduleCall( args ) {
     }
     return started;
 }
+
 // node v6 and v7 are both very very slow to apply a function to a pre-sized new Array(n).
 // A new Array dynamically extended with push (or by just setting a[i]) is fast,
 // and static compile-time array [1,2,...,n] is almost as fast,
@@ -101,6 +108,7 @@ Limiter.prototype._runCall = function _runCall( call, args ) {
     default: call.apply(null, args); return true;
     }
 }
+
 Limiter.prototype.runCall = function runCall( args ) {
     // obtain all needed permissions to run the call
     for (var i=0; i<this.limits.length; i++) {
@@ -139,109 +147,5 @@ Limiter.prototype.runCall = function runCall( args ) {
     nextTick(this._runCall, this.call, args);
     return true;
 }
+
 Limiter.prototype = Limiter.prototype;
-
-//----------------------------------------------------------------
-
-function Limit( ) {
-    this.onUnblock = function(){};
-}
-Limit.prototype.setOnUnblock = function limit_setOnUnblock( func ) {
-    if (typeof func !== 'function') throw new Error("function required");
-    this.onUnblock = func;
-}
-Limit.prototype.acquire = function limit_acquire( args ) {
-    // return true on success, false if limit constrained
-    return true;
-}
-Limit.prototype.release = function limit_release( args, isUndo ) {
-    // notify limiter when restritction is lifted
-    this.onUnblock();
-}
-Limit.prototype = Limit.prototype;
-
-
-function LimitConcurrent( max ) {
-    Limit.call(this);
-    this.max = max;
-    this.running = 0;
-}
-util.inherits(LimitConcurrent, Limit);
-LimitConcurrent.prototype.acquire = function acquire( ) {
-    if (this.running >= this.max) return false;
-    return this.running += 1;
-}
-LimitConcurrent.prototype.release = function release( ) {
-    this.running -= 1;
-    if (this.running < this.max) this.onUnblock();
-}
-LimitConcurrent.prototype = LimitConcurrent.prototype;
-
-
-// at most 1 per interval ms
-function LimitInterval( interval ) {
-    Limit.call(this);
-
-    this.interval = interval;
-    this.lastAt = 0;
-    this.nextAt = 0;
-}
-util.inherits(LimitInterval, Limit);
-LimitInterval.prototype.acquire = function acquire( args ) {
-    var now = Date.now();
-
-    if (now < this.nextAt) {
-        return false;
-    }
-
-    this.lastAt = this.nextAt;
-    this.nextAt = now + this.interval;
-    return true;
-}
-LimitInterval.prototype.release = function release( args, isUndo ) {
-    // both unblock the next call as well as undo an acquire
-    if (isUndo) this.nextAt = this.lastAt;
-    else {
-        var self = this;
-        var now = Date.now();
-        if (now >= this.nextAt) this.onUnblock();
-        // +1 because timeout can trigger 1ms too early
-        else setTimeout(function(){ self.onUnblock() }, this.nextAt - Date.now() + 1);
-    }
-}
-LimitInterval.prototype = LimitInterval.prototype;
-
-
-// at most N per interval
-function LimitPerInterval( max, interval ) {
-    this.max = max;
-    this.startTimes = new QHeap();
-
-    if (typeof interval !== 'number') switch (interval) {
-    case 'second': this.interval = 1000; break;
-    case 'minute': this.interval = 60000; break;
-    case 'hour': this.interval = 3600000; break;
-    case 'day': this.interval = 24*3600*1000; break;
-    default: throw new Error("unrecognized interval " + interval);
-    }
-}
-
-
-/** quicktest:
-
-var ncalls = 0;
-function trace(a, cb) { console.log("trace %d", a); cb() }
-//var fn = qlimiter(trace, {maxConcurrent: 2});
-var fn = qlimiter(trace, {minInterval: 100});
-var t1 = Date.now();
-for (var i=0; i<10; i++) fn(i, function(){ ncalls += 1; });
-fn(i, function(){
-    var t2 = Date.now();
-    console.log("AR: %d calls in %d ms", ncalls, t2 - t1);
-})
-// 100k w/ qlist: 0.33 sec, 1m in 2.72 sec; w/ Array 100k killed after 7 minutes
-// 10k w/ qlist: 0.07 sec, w/ array: 2.56 sec
-// FIXME: no-op in v0.10.42, v4.4.0, v5.10.1 ?!? (no traces)
-//setTimeout(function(){}, 2000);
-
-/**/
