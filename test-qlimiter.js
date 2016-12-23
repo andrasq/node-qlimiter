@@ -170,8 +170,8 @@ module.exports = {
                     console.log("AR: %d calls in %d ms", loopCount, t2 - t1);
                     t.equal(ntests, 2 * loopCount - 1);
                     t.equal(ncalls, ndone);
-                    // expect at least 100k calls / second (measured 1000k)
-                    t.assert(t2 - t1 < 100);
+                    // expect at least 10k calls / second (measured 1000k)
+                    t.assert(t2 - t1 < 1000);
                     t.done();
                 }
             }
