@@ -7,14 +7,14 @@
 
 'use strict';
 
-var qlimiter = require('./');
+var qlimiter = require('../');
 var Limiter = qlimiter.Limiter;
 var Limit = qlimiter.Limit;
 
 module.exports = {
     'setup': {
         'should have valid package.json': function(t) {
-            require('./package.json');
+            require('../package.json');
             t.done();
         },
     },

@@ -10,7 +10,7 @@
     "node": ">=0.10"
   },
   "scripts": {
-    "test": "qnit test-*",
+    "test": "qnit test",
     "coverage": "nyc --version && nyc --reporter lcov --reporter text qnit test-* || echo nyc not installed"
   },
   "keywords": [

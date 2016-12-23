@@ -7,8 +7,8 @@
 
 'use strict';
 
-var qlimiter = require('./');
-var LimitConcurrent = require('./lib/LimitConcurrent');
+var qlimiter = require('../');
+var LimitConcurrent = require('../lib/LimitConcurrent');
 
 module.exports = {
     beforeEach: function(done) {

@@ -7,13 +7,13 @@
 
 'use strict';
 
-var qlimiter = require('./');
-var Limiter = qlimiter.Limiter;
-var Limit = qlimiter.Limit;
+var qlimiter = require('../');
+var Limit = require('../lib/Limit');
 
 module.exports = {
     'should export Limit': function(t) {
         t.equal(typeof Limit, 'function');
+        t.equal(qlimiter.Limit, Limit);
         t.done();
     },
 
