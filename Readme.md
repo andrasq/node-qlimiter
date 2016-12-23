@@ -68,3 +68,19 @@ Change Log
 ----------
 
 - 0.1.0 - first checkin, working but work still in progress
+
+
+Todo
+----
+
+- `maxWaitingCount` - cap wait queue
+- `maxWaitingTime` - max ms to wait
+- `backoffTime` -
+- `backoffMultiplier` -
+
+Related Work
+------------
+
+- `limiter` -
+- `function-rate-limit` -
+- `simple-rate-limiter` -
