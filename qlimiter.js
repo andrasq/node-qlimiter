@@ -18,6 +18,7 @@ var CallQueue = require('qlist');
 var Limit = require('./lib/Limit');
 var LimitConcurrent = require('./lib/LimitConcurrent');
 var LimitInterval = require('./lib/LimitInterval');
+var LimitPerInterval = require('./lib/LimitPerInterval');
 
 function qlimiter( call, options ) {
     var limiter = new Limiter(call, options);
@@ -39,6 +40,7 @@ function Limiter( call, options ) {
     if (options.limits) limits = options.limits;
     if (options.maxConcurrent > 0) limits.push(new LimitConcurrent(parseInt(options.maxConcurrent)));
     if (options.minInterval > 0) limits.push(new LimitInterval(parseInt(options.minInterval)));
+    if (options.maxPerInterval > 0) limits.push(new LimitPerInterval(options.maxPerInterval, options.interval || 1000));
 
 // TODO: maxWaiting, maxWaitTime
 
@@ -48,19 +50,35 @@ function Limiter( call, options ) {
     this.callQueue = new CallQueue();
     this.onUnblock = onUnblock;
 
-    // create a 100-year timer to control when the program may exit
-    self.timer = setTimeout(function(){}, 100 * 365.25 * 24 * 3600 * 1000);
+// AR: for debugging:
+this.wrapped.queue = this.callQueue;
+
+    // create a forever timer with which to prevent an inadvertent program exit
+    self.timer = setInterval(function(){}, 365.25 * 24 * 3600 * 1000);
     self.timer.unref();
+    self.remainResident = false;
 
     // have the limits notify whenever a restriction unblocks
     for (var i=0; i<limits.length; i++) limits[i].setOnUnblock(onUnblock);
 
-    function onUnblock( ) {
-        var args = self.callQueue.peek();
-        if (args !== undefined) {
-            if (self.runCall(args)) self.callQueue.shift();
-        }
-        else self.timer.unref();
+// FIXME: can exit program too soon, before all func callbacks have been invoked!
+// but after all queued calls have been run ?
+
+    function onUnblock( count ) {
+        var args;
+        do {
+            args = self.callQueue.peek();
+            if (args !== undefined) {
+                if ((args = self._prepCall(args))) {
+                    self.callQueue.shift();
+                    self._runCall(self.call, args);
+                }
+            }
+            else if (self.remainResident) {
+                self.timer.unref();
+                self.remainResident = false;
+            }
+        } while (count && args && --count > 0);
     }
 
     function qlimiter_wrapper() {
@@ -85,13 +103,19 @@ Limiter.prototype.scheduleCall = function limiter_scheduleCall( args ) {
         console.log("missing callback, skipped");
         return;
     }
-    var started = this.runCall(args);
-    if (!started) {
+    var startedArgs = this._prepCall(args);
+    if (!startedArgs) {
         this.callQueue.push(args);
         // do not let program exit while we still have more calls to run
         this.timer.ref();
+        this.remainResident = true;
+        return false;
     }
-    return started;
+    else {
+        // only run the call after the event loop finishes, to avoid callback-vs-init races
+        nextTick(this._runCall, this.call, args);
+        return true;
+    }
 }
 
 // node v6 and v7 are both very very slow to apply a function to a pre-sized new Array(n).
@@ -109,7 +133,7 @@ Limiter.prototype._runCall = function _runCall( call, args ) {
     }
 }
 
-Limiter.prototype.runCall = function runCall( args ) {
+Limiter.prototype._prepCall = function _prepCall( args ) {
     // obtain all needed permissions to run the call
     for (var i=0; i<this.limits.length; i++) {
         if (!this.limits[i].acquire(args)) {
@@ -142,10 +166,33 @@ Limiter.prototype.runCall = function runCall( args ) {
         }
     }
 
-    // only run the call after the event loop finishes, to avoid callback-vs-init races
-    // TODO: do not block event loop, avoid too many calls without yielding
-    nextTick(this._runCall, this.call, args);
-    return true;
+    // if the call is ready to run now, return the call arguments to be used
+    return args;
 }
 
 Limiter.prototype = Limiter.prototype;
+
+
+/** quicktest:
+
+var timeit = require('qtimeit');
+
+var func = function(a, b, cb){
+    cb(null, a+b);
+}
+var fn = qlimiter(func, { maxPerInterval: 3, interval: 100  });
+
+var nloops = 7, ncalls = 0;
+var t1 = Date.now();
+for (var i=0; i<nloops; i++) {
+    fn(11, 22, function(err, ret) {
+        ncalls += 1;
+        if (ncalls === nloops) {
+            var t2 = Date.now();
+            console.log("AR: DONE: got", err, ret);
+            console.log("AR: DONE: %d calls in %d ms", nloops, t2 - t1);
+        }
+    })
+}
+
+/**/
