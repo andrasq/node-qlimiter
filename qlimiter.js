@@ -50,9 +50,6 @@ function Limiter( call, options ) {
     this.callQueue = new CallQueue();
     this.onUnblock = onUnblock;
 
-// AR: for debugging:
-this.wrapped.queue = this.callQueue;
-
     // create a forever timer with which to prevent an inadvertent program exit
     self.timer = setInterval(function(){}, 365.25 * 24 * 3600 * 1000);
     self.timer.unref();
@@ -60,9 +57,6 @@ this.wrapped.queue = this.callQueue;
 
     // have the limits notify whenever a restriction unblocks
     for (var i=0; i<limits.length; i++) limits[i].setOnUnblock(onUnblock);
-
-// FIXME: can exit program too soon, before all func callbacks have been invoked!
-// but after all queued calls have been run ?
 
     function onUnblock( count ) {
         var args;
@@ -74,9 +68,11 @@ this.wrapped.queue = this.callQueue;
                     self._runCall(self.call, args);
                 }
             }
-            else if (self.remainResident) {
-                self.timer.unref();
-                self.remainResident = false;
+            else {
+                if (self.remainResident) {
+                    self.timer.unref();
+                    self.remainResident = false;
+                }
             }
         } while (count && args && --count > 0);
     }

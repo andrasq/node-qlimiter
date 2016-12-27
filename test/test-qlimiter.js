@@ -98,7 +98,7 @@ module.exports = {
             var limiter = new Limiter(fn, {});
             t.equal(typeof limiter.wrapped, 'function');
             t.equal(typeof limiter.scheduleCall, 'function');
-            t.equal(typeof limiter.runCall, 'function');
+            t.equal(typeof limiter._prepCall, 'function');
             t.done();
         },
 
