@@ -9,7 +9,10 @@ Quick Start
 -----------
 
     var qlimiter = require('qlimiter');
-    var rateLimitedFunc = qlimiter(func, {maxConcurrent: 10});
+
+    // rate limit func to no more than 5 calls per 100 milliseconds
+    var rateLimitedFunc = qlimiter(func, {maxPerInterval: 5, interval: 100});
+
     rateLimitedFunc(1, 2, function(err, ret) {
         // ret => 3
     })
