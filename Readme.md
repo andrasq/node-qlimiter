@@ -74,6 +74,7 @@ object that was passed to `acquire`.
 Change Log
 ----------
 
+- 0.3.1 - unit tests
 - 0.3.0 - maxConcurrent, minInterval, maxPerInterval
 - 0.1.0 - first checkin, working but work still in progress
 
@@ -85,7 +86,6 @@ Todo
 - `maxWaitingTime` - max ms to wait
 - `backoffTime` -
 - `backoffMultiplier` -
-- more unit tests
 
 
 Related Work

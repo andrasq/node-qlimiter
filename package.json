@@ -1,7 +1,7 @@
 {
   "name": "qlimiter",
   "description": "fast nodejs call rate limiter",
-  "version": "0.3.1-pre",
+  "version": "0.3.1",
   "license": "Apache-2.0",
   "main": "qlimiter.js",
   "repository": "git://github.com/andrasq/node-qlimiter",
