@@ -26,7 +26,9 @@ Quick Start
 Benchmark
 ---------
 
-10k 2-arg `maxConcurrent` calls in 9ms
+100k 2-arg `maxConcurrent` calls in 47 ms
+
+100k 2-arg `maxPerInterval` calls in 152 ms
 
 
 Api
