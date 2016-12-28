@@ -10,6 +10,7 @@
 var qlimiter = require('../');
 var Limiter = qlimiter.Limiter;
 var Limit = qlimiter.Limit;
+var LimitPerInterval = require('../lib/LimitPerInterval');
 
 module.exports = {
     'setup': {
@@ -158,8 +159,51 @@ module.exports = {
         },
 
         'should pass distinct args to acquire': function(t) {
-            // TODO
-            t.skip();
+            var acquireArgs = [];
+            var releaseArgs = [];
+            var limit = {
+                acquire: function(args) { acquireArgs.push(args); return false },
+                setOnUnblock: function(){},
+            };
+
+            var limited = qlimiter(function(){}, { limits: [ limit ] });
+            limited(1,2,3, function(){});
+            limited(1,2,3, function(){});
+            limited(1,2,3, function(){});
+            setTimeout(function(){ 
+                t.equal(acquireArgs.length, 3);
+                t.notEqual(acquireArgs[0], acquireArgs[1]);
+                t.notEqual(acquireArgs[0], acquireArgs[2]);
+                t.notEqual(acquireArgs[1], acquireArgs[2]);
+                t.done();
+            }, 2);
+        },
+
+        'should pass args to release': function(t) {
+            var acquireArgs = [];
+            var releaseArgs = [];
+            var limit = {
+                acquire: function(args) { acquireArgs.push(args); return true },
+                release: function(args, isUndo) { releaseArgs.push(args); },
+                setOnUnblock: function(){},
+            };
+
+            var limited = qlimiter(function(a,b,c,cb){ cb() }, { limits: [ limit ] });
+            limited(1,2,3, function() {
+                setTimeout(function() {
+                    t.equal(acquireArgs.length, 1);
+                    t.equal(acquireArgs[0], releaseArgs[0]);
+                    t.done();
+                }, 2);
+            });
+        },
+
+        'should default to interval of 1 sec': function(t) {
+            var limiter = new Limiter(function(){}, { maxPerInterval: 2 });
+            t.assert(limiter.limits[0] instanceof LimitPerInterval);
+            t.equal(limiter.limits[0].interval, 1000);
+            t.equal(limiter.limits[0].max, 2);
+            t.done();
         },
 
         'should delay call until a limit unblocks': function(t) {
@@ -184,6 +228,30 @@ module.exports = {
             t.assert(limit1acquired && limit1released && limit2tested && !limit3tested);
             // +1 since the timeout can trigger 1 ms early, node-v0.10.42 and v6.9.1 both
             setTimeout(function(){ limit2.onUnblock() }, 5 + 1);
+        },
+
+        'should unblock multiple waiting calls': function(t) {
+            var allowCall = false;
+            var acquireCount = 0;
+            var limit = {
+                acquire: function(args) { acquireCount += 1; return allowCall },
+                release: function(args) { },
+                setOnUnblock: function(fn){ this.onUnblock = fn },
+                onUnblock: null,
+            };
+
+            var limiter = new Limiter(function(){}, { limits: [ limit ] });
+            var limited = limiter.wrapped;
+            limited(1, 2, onDone);
+            limited(3, 4, onDone);
+            limited(5, 6, onDone);
+            function onDone() { }
+
+            allowCall = true;
+            t.equal(acquireCount, 3);
+            limit.onUnblock(2);
+            t.equal(acquireCount, 5);
+            t.done();
         },
     },
 

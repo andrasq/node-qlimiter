@@ -2,7 +2,7 @@ qlimiter
 ========
 
 
-Fast configurable call rate limiter, for any function taking a callback
+Configurable call rate limiter, for any function taking a callback
 as the last argument.  Extendable with externally written limits.
 
 Quick Start
@@ -74,7 +74,7 @@ object that was passed to `acquire`.
 Change Log
 ----------
 
-- 0.3.1 - unit tests
+- 0.3.2 - unit tests
 - 0.3.0 - maxConcurrent, minInterval, maxPerInterval
 - 0.1.0 - first checkin, working but work still in progress
 
