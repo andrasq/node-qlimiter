@@ -83,7 +83,46 @@ module.exports = {
                 };
                 var f = qlimiter(func, { maxConcurrent: 1 });
                 for (var i=0; i<10; i++) f(cb);
-            }
+            },
+
+            'should impose interval': function(t) {
+                var limited = qlimiter(function(cb){ cb() }, { minInterval: 10 });
+                var ncalls = 0;
+                var t1 = Date.now();
+                limited(after);
+                limited(after);
+                function after() {
+                    ncalls += 1;
+                    var t2 = Date.now();
+                    if (ncalls < 2) {
+                        t.assert(t2 < t1 + 5);
+                    }
+                    else {
+                        t.assert(t2 >= t1 + 10);
+                        t.done();
+                    }
+                }
+            },
+
+            'should limit calls per interval': function(t) {
+                var limited = qlimiter(function(cb){ cb() }, { maxPerInterval: 2, interval: 10 });
+                var ncalls = 0;
+                var t1 = Date.now();
+                limited(after);
+                limited(after);
+                limited(after);
+                function after() {
+                    ncalls += 1;
+                    var t2 = Date.now();
+                    if (ncalls < 3) {
+                        t.assert(t2 < t1 + 5);
+                    }
+                    else {
+                        t.assert(t2 >= t1 + 10);
+                        t.done();
+                    }
+                }
+            },
         }
     },
 
