@@ -38,8 +38,10 @@ its last argument.
 
 Options:
 - `limits` - array of custom limits to test
-- `maxConcurrent`
-
+- `maxConcurrent` - limit number of calls running concurrently
+- `minInterval` - minimum calls spacing, in milliseconds
+- `maxPerInterval` - limit calls per rolling time `interval` milliseconds
+- `interval` - rolling time interval, default 1000 milliseconds
 
 Extending
 ---------
@@ -77,6 +79,8 @@ Todo
 - `maxWaitingTime` - max ms to wait
 - `backoffTime` -
 - `backoffMultiplier` -
+- more unit tests
+
 
 Related Work
 ------------
