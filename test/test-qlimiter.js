@@ -119,7 +119,8 @@ module.exports = {
                         t.assert(t2 < t1 + 5);
                     }
                     else {
-                        t.assert(t2 >= t1 + 10);
+                        // node can trigger timeout 1 ms too early
+                        t.assert(t2 >= t1 + 10 - 1);
                         t.done();
                     }
                 }
@@ -128,6 +129,23 @@ module.exports = {
     },
 
     'Limiter': {
+
+        beforeEach: function(done) {
+            var self = this;
+            this.acquireArgs = [];
+            this.releaseArgs = [];
+            this.acquireCount = 0;
+            this.releaseCount = 0;
+            this.acquireReturns = [true, true, true, true, true, true];
+            this.limit = {
+                acquire: function(args) { self.acquireCount += 1; self.acquireArgs.push(args); return self.acquireReturns.shift() },
+                release: function(args) { self.releaseCount += 1; self.releaseArgs.push(args); },
+                setOnUnblock: function(fn){ this.onUnblock = fn; return this },
+                onUnblock: function(){ },
+            };
+            done();
+        },
+
         'should export Limiter': function(t) {
             t.equal(typeof Limiter, 'function');
             t.done();
@@ -159,40 +177,27 @@ module.exports = {
         },
 
         'should pass distinct args to acquire': function(t) {
-            var acquireArgs = [];
-            var releaseArgs = [];
-            var limit = {
-                acquire: function(args) { acquireArgs.push(args); return false },
-                setOnUnblock: function(){},
-            };
-
-            var limited = qlimiter(function(){}, { limits: [ limit ] });
+            var self = this;
+            var limited = qlimiter(function(){}, { limits: [ self.limit ] });
             limited(1,2,3, function(){});
             limited(1,2,3, function(){});
             limited(1,2,3, function(){});
             setTimeout(function(){ 
-                t.equal(acquireArgs.length, 3);
-                t.notEqual(acquireArgs[0], acquireArgs[1]);
-                t.notEqual(acquireArgs[0], acquireArgs[2]);
-                t.notEqual(acquireArgs[1], acquireArgs[2]);
+                t.equal(self.acquireArgs.length, 3);
+                t.notEqual(self.acquireArgs[0], self.acquireArgs[1]);
+                t.notEqual(self.acquireArgs[0], self.acquireArgs[2]);
+                t.notEqual(self.acquireArgs[1], self.acquireArgs[2]);
                 t.done();
             }, 2);
         },
 
         'should pass args to release': function(t) {
-            var acquireArgs = [];
-            var releaseArgs = [];
-            var limit = {
-                acquire: function(args) { acquireArgs.push(args); return true },
-                release: function(args, isUndo) { releaseArgs.push(args); },
-                setOnUnblock: function(){},
-            };
-
-            var limited = qlimiter(function(a,b,c,cb){ cb() }, { limits: [ limit ] });
+            var self = this;
+            var limited = qlimiter(function(a,b,c,cb){ cb() }, { limits: [ self.limit ] });
             limited(1,2,3, function() {
                 setTimeout(function() {
-                    t.equal(acquireArgs.length, 1);
-                    t.equal(acquireArgs[0], releaseArgs[0]);
+                    t.equal(self.acquireArgs.length, 1);
+                    t.equal(self.acquireArgs[0], self.releaseArgs[0]);
                     t.done();
                 }, 2);
             });
@@ -230,27 +235,20 @@ module.exports = {
             setTimeout(function(){ limit2.onUnblock() }, 5 + 1);
         },
 
-        'should unblock multiple waiting calls': function(t) {
-            var allowCall = false;
-            var acquireCount = 0;
-            var limit = {
-                acquire: function(args) { acquireCount += 1; return allowCall },
-                release: function(args) { },
-                setOnUnblock: function(fn){ this.onUnblock = fn },
-                onUnblock: null,
-            };
-
-            var limiter = new Limiter(function(){}, { limits: [ limit ] });
+        'should unblock specific waiting calls': function(t) {
+            var self = this;
+            self.acquireReturns = [false, false, false, true];
+            var limiter = new Limiter(function(){}, { limits: [ this.limit ] });
             var limited = limiter.wrapped;
+
+            function onDone() { }
             limited(1, 2, onDone);
             limited(3, 4, onDone);
             limited(5, 6, onDone);
-            function onDone() { }
 
-            allowCall = true;
-            t.equal(acquireCount, 3);
-            limit.onUnblock(2);
-            t.equal(acquireCount, 5);
+            t.equal(self.acquireCount, 3);
+            self.limit.onUnblock('nonesuch');
+            t.equal(self.acquireCount, 3);
             t.done();
         },
     },

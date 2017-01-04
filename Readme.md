@@ -74,6 +74,7 @@ object that was passed to `acquire`.
 Change Log
 ----------
 
+- 0.4.0 - change `onUnblock` argument from count to type
 - 0.3.2 - unit tests
 - 0.3.0 - maxConcurrent, minInterval, maxPerInterval
 - 0.1.0 - first checkin, working but work still in progress
