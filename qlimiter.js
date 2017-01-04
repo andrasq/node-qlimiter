@@ -48,7 +48,9 @@ function Limiter( call, options ) {
     this.wrapped = qlimiter_wrapper;
     this.limits = limits;
     this.callQueue = new CallQueue();
+    this.callQueues = {};
     this.onUnblock = onUnblock;
+    this.waitingCount = 0;
 
     // create a forever timer with which to prevent an inadvertent program exit
     self.timer = setInterval(function(){}, 365.25 * 24 * 3600 * 1000);
@@ -65,11 +67,12 @@ function Limiter( call, options ) {
             if (args !== undefined) {
                 if ((args = self._prepCall(args))) {
                     self.callQueue.shift();
+                    self.waitingCount -= 1;
                     self._runCall(self.call, args);
                 }
             }
             else {
-                if (self.remainResident) {
+                if (self.remainResident && self.waitingCount == 0) {
                     self.timer.unref();
                     self.remainResident = false;
                 }
@@ -103,6 +106,7 @@ Limiter.prototype.scheduleCall = function limiter_scheduleCall( args ) {
     if (!startedArgs) {
         this.callQueue.push(args);
         // do not let program exit while we still have more calls to run
+        this.waitingCount += 1;
         this.timer.ref();
         this.remainResident = true;
         return false;
