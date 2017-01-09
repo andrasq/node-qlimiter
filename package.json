@@ -17,7 +17,8 @@
     "call", "rate", "limit", "throttle", "Andras", "limiter", "capped"
   ],
   "dependencies": {
-    "qlist": "0.12.0"
+    "qlist": "0.12.0",
+    "qtimeout": "0.9.2"
   },
   "devDependencies": {
     "qnit": "0.11.0"
