@@ -2,25 +2,44 @@ qlimiter
 ========
 
 
-Configurable call rate limiter, for any function taking a callback
-as the last argument.  Extendable with externally written limits.
+Configurable, extensible multi-tenant nodejs function call rate limiter, for any
+function taking a callback as the last argument.  Extendable with externally
+written limits.
 
 Quick Start
 -----------
 
     var qlimiter = require('qlimiter');
 
-    // rate limit func to no more than 5 calls per 100 milliseconds
-    var rateLimitedFunc = qlimiter(func, {maxPerInterval: 5, interval: 100});
+    // rate limit sum() to no more than 5 calls per any 100 milliseconds
+    var rateLimitedSum = qlimiter(sum, {maxPerInterval: 5, interval: 100});
 
-    rateLimitedFunc(1, 2, function(err, ret) {
+    rateLimitedSum(1, 2, function(err, ret) {
         // ret => 3
     })
 
-    function func(a, b, cb) {
+    function sum(a, b, cb) {
         var ret = a + b;
         cb(null, ret);
     }
+
+
+Description
+-----------
+
+*Configurable* - can specify multiple constraints, all must be met else the
+  call will be blocked.  Blocked calls are queued and are run later when the
+  constraints are met.
+
+*Extensible* - can use user-written constraints as the enforced limits, both
+  in combination with built-in limits or standalone.
+
+*Multi-Tenant* - the constraints can decide whether to throttle based on the call
+  arguments.  Qlimiter will queue the call on different waiting lists depending on
+  what limit they blocked on.
+
+*Function Call* - can throttle any function with a callback as its last parameter,
+  including but not limited to middleware steps.
 
 
 Benchmark
@@ -60,8 +79,12 @@ A custom limit inherits from `qlimiter.Limit` or must implements methods
 usage has dropped below the limit threshold.
 
 `acquire( args )` - called to test whether a call can run.  Return true to allow
-the call to run now, false to block it until later.  If blocked, must notify the
-limiter when unblocked with the `onUnblock` method.  Acquire is presented the
+the call to run now, any other value to block it until later.  Returned values other
+than `true` are tags used to identify which resource to block on.
+If blocked, must notify the
+limiter when unblocked with the `onUnblock` method.  `onUnblock()` must be called
+with a value matching one of the blocked-on tags.
+Acquire is presented the
 arguments of the call.  Each call has a different args array, even if the args
 contain the same values.
 

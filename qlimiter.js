@@ -60,13 +60,19 @@ function Limiter( call, options ) {
     // have the limits notify whenever a restriction unblocks
     for (var i=0; i<limits.length; i++) limits[i].setOnUnblock(onUnblock);
 
-    function onUnblock( count ) {
-        var args;
+    function onUnblock( waitingType ) {
+        var callQueue, q, args;
+
+        // all unblocks must match an existing wait queue
+        if (waitingType) callQueue = (q = self.callQueues[waitingType]) ? q : null;
+        else callQueue = self.callQueue;
+        if (!callQueue) return;
+
         do {
-            args = self.callQueue.peek();
+            args = callQueue.peek();
             if (args !== undefined) {
                 if ((args = self._prepCall(args))) {
-                    self.callQueue.shift();
+                    callQueue.shift();
                     self.waitingCount -= 1;
                     self._runCall(self.call, args);
                 }
@@ -77,7 +83,7 @@ function Limiter( call, options ) {
                     self.remainResident = false;
                 }
             }
-        } while (count && args && --count > 0);
+        } while (args && false);
     }
 
     function qlimiter_wrapper() {
@@ -102,9 +108,11 @@ Limiter.prototype.scheduleCall = function limiter_scheduleCall( args ) {
         console.log("missing callback, skipped");
         return;
     }
-    var startedArgs = this._prepCall(args);
-    if (!startedArgs) {
-        this.callQueue.push(args);
+    var argsElseWaitingType = this._prepCall(args);
+    if (!argsElseWaitingType || typeof argsElseWaitingType === 'string') {
+        var callQueue = argsElseWaitingType ? (this.callQueues[argsElseWaitingType] || (this.callQueues[argsElseWaitingType] = new Array())) : this.callQueue;
+        // TODO: prepend a queued-at timestamp to tbd timeout
+        callQueue.push(args);
         // do not let program exit while we still have more calls to run
         this.waitingCount += 1;
         this.timer.ref();
@@ -135,12 +143,16 @@ Limiter.prototype._runCall = function _runCall( call, args ) {
 
 Limiter.prototype._prepCall = function _prepCall( args ) {
     // obtain all needed permissions to run the call
+    // permission is `true`, else `false` if generic, else the call subtype wait for
     for (var i=0; i<this.limits.length; i++) {
-        if (!this.limits[i].acquire(args)) {
-            // if unable to run now, back out of the transaction, give back all the permissions
-            for (--i; i>=0; i--) this.limits[i].release(args, 'fail');
-            return false;
-        }
+        var trueElseWaitingType = this.limits[i].acquire(args);
+        if (trueElseWaitingType === true) continue;
+
+        // if unable to run now, back out of the transaction, give back all the permissions
+        for (--i; i>=0; i--) this.limits[i].release(args, 'undo');
+
+        // return the tag by which to queue the call
+        return trueElseWaitingType ? '' + trueElseWaitingType : false;
     }
 
     // swap out the call callback so we know when the call finished

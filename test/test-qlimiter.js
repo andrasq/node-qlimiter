@@ -249,6 +249,10 @@ module.exports = {
             t.equal(self.acquireCount, 3);
             self.limit.onUnblock('nonesuch');
             t.equal(self.acquireCount, 3);
+
+            self.limit.onUnblock(false);
+            t.equal(self.acquireCount, 4);
+
             t.done();
         },
     },
